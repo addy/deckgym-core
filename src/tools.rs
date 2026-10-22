@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::sync::LazyLock;
+use strum::IntoEnumIterator;
 
 use crate::{
     card_ids::CardId,
@@ -28,6 +30,24 @@ fn tool_effect_text_from_card_id(tool_card_id: CardId) -> String {
     let card = get_card_by_enum(tool_card_id);
     let trainer_card = ensure_tool_card(&card);
     trainer_card.effect.clone()
+}
+
+/// Effect text of every Pokémon Tool, keyed by card id, built once. The
+/// per-call lookups below must not rebuild a card from the database: that
+/// made every `get_remaining_hp` (four `has_tool` checks) allocate.
+static TOOL_EFFECT_BY_ID: LazyLock<HashMap<CardId, String>> = LazyLock::new(|| {
+    CardId::iter()
+        .filter_map(|id| match get_card_by_enum(id) {
+            Card::Trainer(t) if t.trainer_card_type == TrainerType::Tool => Some((id, t.effect)),
+            _ => None,
+        })
+        .collect()
+});
+
+fn tool_effect_text(tool_card_id: CardId) -> &'static str {
+    TOOL_EFFECT_BY_ID
+        .get(&tool_card_id)
+        .unwrap_or_else(|| panic!("Expected TrainerCard of subtype Tool, got {tool_card_id:?}"))
 }
 
 static GIANT_CAPE_EFFECT: LazyLock<String> =
@@ -85,7 +105,7 @@ static CLEAR_VEIL_EFFECT: LazyLock<String> =
 
 pub fn tool_effects_equal(trainer_card: &TrainerCard, reference_tool_id: CardId) -> bool {
     ensure_tool_trainer(trainer_card);
-    trainer_card.effect == tool_effect_text_from_card_id(reference_tool_id)
+    trainer_card.effect == tool_effect_text(reference_tool_id)
 }
 
 /// Whether *any* Tool attached to `played_card` is the referenced Tool. A Pokémon with two Tool
@@ -99,7 +119,7 @@ pub fn has_tool(played_card: &PlayedCard, reference_tool_id: CardId) -> bool {
 /// remove *that* Tool specifically (Lum Berry and Sitrus Berry discard themselves; Metal Core
 /// Barrier is discarded at the end of the opponent's turn) rather than all of them.
 pub(crate) fn tool_position(played_card: &PlayedCard, reference_tool_id: CardId) -> Option<usize> {
-    let reference_effect = tool_effect_text_from_card_id(reference_tool_id);
+    let reference_effect = tool_effect_text(reference_tool_id);
     played_card
         .attached_tools
         .iter()
