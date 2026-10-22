@@ -140,6 +140,13 @@ pub struct State {
 }
 
 impl State {
+    /// Whether the only legal action is the forced end of the current turn
+    /// (set by an attack). Lets an external search recognise a forced step
+    /// without generating free-play moves.
+    pub fn end_turn_pending(&self) -> bool {
+        self.end_turn_pending
+    }
+
     pub fn new(deck_a: &Deck, deck_b: &Deck) -> Self {
         Self {
             winner: None,
