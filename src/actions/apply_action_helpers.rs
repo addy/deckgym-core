@@ -22,14 +22,14 @@ use crate::{
 
 use super::Action;
 
-pub(crate) type Probabilities = Vec<f64>;
+pub type Probabilities = Vec<f64>;
 
 // Mutations should be deterministic. They take StdRng because we simplify some states spaces
 //  like "shuffling a deck" (which would otherwise yield a huge state space) to a single
 //  mutation/state ("shuffled deck"). Bots should not use deck order information when forecasting.
 pub(crate) type FnMutation = Box<dyn Fn(&mut StdRng, &mut State, &Action)>;
-pub(crate) type Mutation = Box<dyn FnOnce(&mut StdRng, &mut State, &Action)>;
-pub(crate) type Mutations = Vec<Mutation>;
+pub type Mutation = Box<dyn FnOnce(&mut StdRng, &mut State, &Action)>;
+pub type Mutations = Vec<Mutation>;
 
 #[derive(Clone)]
 struct CheckupTargets {
