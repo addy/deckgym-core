@@ -399,7 +399,10 @@ fn can_use_dragonair_dragons_blessing(
     if in_play_idx == 0 || card.ability_used {
         return false;
     }
-    state.maybe_get_active(state.current_player).is_some()
+    // "...to your Active [N] Pokémon": the Active Spot must hold a Dragon-type Pokémon.
+    state
+        .maybe_get_active(state.current_player)
+        .is_some_and(|active| active.is_type(EnergyType::Dragon))
         && !state.discard_energies[state.current_player].is_empty()
 }
 
