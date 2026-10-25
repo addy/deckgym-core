@@ -38,7 +38,9 @@ fn tool_effect_text_from_card_id(tool_card_id: CardId) -> String {
 static TOOL_EFFECT_BY_ID: LazyLock<HashMap<CardId, String>> = LazyLock::new(|| {
     CardId::iter()
         .filter_map(|id| match get_card_by_enum(id) {
-            Card::Trainer(t) if t.trainer_card_type == TrainerType::Tool => Some((id, t.effect)),
+            Card::Trainer(t) if t.trainer_card_type == TrainerType::Tool => {
+                Some((id, t.effect.clone()))
+            }
             _ => None,
         })
         .collect()

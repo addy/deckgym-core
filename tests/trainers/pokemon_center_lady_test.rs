@@ -1,7 +1,7 @@
 use deckgym::{
     actions::{Action, SimpleAction},
     card_ids::CardId,
-    models::{Card, PlayedCard, StatusCondition, TrainerCard},
+    models::{Card, PlayedCard, StatusCondition, TrainerCard, TrainerCardData},
     test_support::get_initialized_game,
 };
 
@@ -19,7 +19,7 @@ fn test_pokemon_center_lady_heals_30_damage() {
     );
 
     // Add Pokemon Center Lady to hand
-    let pokemon_center_lady = Card::Trainer(TrainerCard {
+    let pokemon_center_lady = Card::Trainer(TrainerCard::from(TrainerCardData {
         id: "A2b 070".to_string(),
         trainer_card_type: deckgym::models::TrainerType::Supporter,
         name: "Pokémon Center Lady".to_string(),
@@ -28,7 +28,7 @@ fn test_pokemon_center_lady_heals_30_damage() {
                 .to_string(),
         rarity: "◊◊".to_string(),
         booster_pack: "Shining Revelry (A2b)".to_string(),
-    });
+    }));
     state.hands[0].push(pokemon_center_lady.clone());
     game.set_state(state);
 
@@ -88,7 +88,7 @@ fn test_pokemon_center_lady_cures_poisoned() {
     state.apply_status_condition(0, 0, StatusCondition::Poisoned);
 
     // Add Pokemon Center Lady to hand
-    let pokemon_center_lady = Card::Trainer(TrainerCard {
+    let pokemon_center_lady = Card::Trainer(TrainerCard::from(TrainerCardData {
         id: "A2b 070".to_string(),
         trainer_card_type: deckgym::models::TrainerType::Supporter,
         name: "Pokémon Center Lady".to_string(),
@@ -97,7 +97,7 @@ fn test_pokemon_center_lady_cures_poisoned() {
                 .to_string(),
         rarity: "◊◊".to_string(),
         booster_pack: "Shining Revelry (A2b)".to_string(),
-    });
+    }));
     state.hands[0].push(pokemon_center_lady.clone());
     game.set_state(state);
 
@@ -155,7 +155,7 @@ fn test_pokemon_center_lady_heals_and_cures_together() {
     state.apply_status_condition(0, 0, StatusCondition::Asleep);
 
     // Add Pokemon Center Lady to hand
-    let pokemon_center_lady = Card::Trainer(TrainerCard {
+    let pokemon_center_lady = Card::Trainer(TrainerCard::from(TrainerCardData {
         id: "A2b 089".to_string(),
         trainer_card_type: deckgym::models::TrainerType::Supporter,
         name: "Pokémon Center Lady".to_string(),
@@ -164,7 +164,7 @@ fn test_pokemon_center_lady_heals_and_cures_together() {
                 .to_string(),
         rarity: "☆☆".to_string(),
         booster_pack: "Shining Revelry (A2b)".to_string(),
-    });
+    }));
     state.hands[0].push(pokemon_center_lady.clone());
     game.set_state(state);
 

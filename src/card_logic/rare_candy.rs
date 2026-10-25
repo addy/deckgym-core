@@ -64,7 +64,7 @@ static RARE_CANDY_LOOKUP: LazyLock<HashMap<(String, String), bool>> = LazyLock::
         let card = get_card_by_enum(id);
         if let Card::Pokemon(pokemon_card) = card {
             if pokemon_card.stage == 1 {
-                if let Some(evolves_from) = pokemon_card.evolves_from {
+                if let Some(evolves_from) = pokemon_card.evolves_from.clone() {
                     stage1_map.insert(pokemon_card.name.clone(), evolves_from);
                 }
             }

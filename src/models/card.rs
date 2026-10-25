@@ -1,11 +1,13 @@
 use core::fmt;
 use std::hash::{Hash, Hasher};
+use std::ops::Deref;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
     actions::{abilities::AbilityMechanic, has_ability_mechanic},
     card_ids::CardId,
+    database::get_card_by_enum,
 };
 
 /// Represents the type of energy.
@@ -98,7 +100,7 @@ pub const BASIC_STAGE: u8 = 0;
 
 /// Represents the data of a single pokemon card.
 #[derive(Clone, Serialize, Deserialize)]
-pub struct PokemonCard {
+pub struct PokemonCardData {
     pub id: String,
     pub name: String,
     pub stage: u8, // 0 for Basic, 1 for Stage 1, 2 for Stage 2
@@ -112,6 +114,26 @@ pub struct PokemonCard {
     pub rarity: String,
     pub booster_pack: String,
 }
+
+/// A Pokémon card: a shared reference to immutable card data, so cloning a card (and the
+/// states and actions that hold cards) copies a pointer instead of every string and list on
+/// it. Fields are read through `Deref`. Equality, hashing, `Debug` and serde behave as they
+/// did when the card owned its data.
+#[derive(Clone)]
+pub struct PokemonCard(&'static PokemonCardData);
+impl Deref for PokemonCard {
+    type Target = PokemonCardData;
+    fn deref(&self) -> &PokemonCardData {
+        self.0
+    }
+}
+/// Card data that lives for the rest of the program (tests, tools): leaked once. Database
+/// cards are borrowed from the database instead (`get_card_by_enum`).
+impl From<PokemonCardData> for PokemonCard {
+    fn from(data: PokemonCardData) -> Self {
+        PokemonCard(Box::leak(Box::new(data)))
+    }
+}
 impl PartialEq for PokemonCard {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
@@ -121,6 +143,20 @@ impl Eq for PokemonCard {}
 impl Hash for PokemonCard {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+impl Serialize for PokemonCard {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+impl<'de> Deserialize<'de> for PokemonCard {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = PokemonCardData::deserialize(deserializer)?;
+        match database_card(&data.id) {
+            Some(Card::Pokemon(card)) => Ok(card),
+            _ => Ok(data.into()),
+        }
     }
 }
 
@@ -135,13 +171,29 @@ pub enum TrainerType {
 
 /// Represents the data of a single trainer card.
 #[derive(Clone, Serialize, Deserialize)]
-pub struct TrainerCard {
+pub struct TrainerCardData {
     pub id: String,
     pub trainer_card_type: TrainerType,
     pub name: String,
     pub effect: String,
     pub rarity: String,
     pub booster_pack: String,
+}
+
+/// A Trainer card: a shared reference to immutable card data (see `PokemonCard`).
+#[derive(Clone)]
+pub struct TrainerCard(&'static TrainerCardData);
+impl Deref for TrainerCard {
+    type Target = TrainerCardData;
+    fn deref(&self) -> &TrainerCardData {
+        self.0
+    }
+}
+/// Card data that lives for the rest of the program (tests, tools): leaked once.
+impl From<TrainerCardData> for TrainerCard {
+    fn from(data: TrainerCardData) -> Self {
+        TrainerCard(Box::leak(Box::new(data)))
+    }
 }
 impl PartialEq for TrainerCard {
     fn eq(&self, other: &Self) -> bool {
@@ -152,6 +204,50 @@ impl Eq for TrainerCard {}
 impl Hash for TrainerCard {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+impl Serialize for TrainerCard {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(serializer)
+    }
+}
+impl<'de> Deserialize<'de> for TrainerCard {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let data = TrainerCardData::deserialize(deserializer)?;
+        match database_card(&data.id) {
+            Some(Card::Trainer(card)) => Ok(card),
+            _ => Ok(data.into()),
+        }
+    }
+}
+
+/// The database's card for a printed id, so deserialized cards share the database's data
+/// (cards are equal by id) instead of leaking a copy each.
+fn database_card(id: &str) -> Option<Card> {
+    CardId::from_card_id(id).map(get_card_by_enum)
+}
+
+/// A card definition as the generated database spells it; `Card` borrows it.
+#[derive(Clone, Serialize, Deserialize)]
+pub enum CardData {
+    Pokemon(PokemonCardData),
+    Trainer(TrainerCardData),
+}
+/// Card data that lives for the rest of the program: leaked once (see `PokemonCard`).
+impl From<CardData> for Card {
+    fn from(data: CardData) -> Self {
+        match data {
+            CardData::Pokemon(data) => Card::Pokemon(data.into()),
+            CardData::Trainer(data) => Card::Trainer(data.into()),
+        }
+    }
+}
+impl From<&'static CardData> for Card {
+    fn from(data: &'static CardData) -> Self {
+        match data {
+            CardData::Pokemon(data) => Card::Pokemon(PokemonCard(data)),
+            CardData::Trainer(data) => Card::Trainer(TrainerCard(data)),
+        }
     }
 }
 
@@ -372,5 +468,48 @@ impl fmt::Debug for TrainerCard {
         } else {
             write!(f, "{} {}", self.id, self.name)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn data_of(card: &Card) -> *const () {
+        match card {
+            Card::Pokemon(p) => p.0 as *const PokemonCardData as *const (),
+            Card::Trainer(t) => t.0 as *const TrainerCardData as *const (),
+        }
+    }
+
+    #[test]
+    fn cards_share_the_database_data() {
+        for id in [CardId::A1001Bulbasaur, CardId::PA001Potion] {
+            let card = get_card_by_enum(id);
+            assert_eq!(data_of(&card), data_of(&card.clone()));
+            assert_eq!(data_of(&card), data_of(&get_card_by_enum(id)));
+        }
+    }
+
+    #[test]
+    fn serde_round_trip_keeps_the_json_and_the_shared_data() {
+        for id in [CardId::A1001Bulbasaur, CardId::PA001Potion] {
+            let card = get_card_by_enum(id);
+            let json = serde_json::to_string(&card).unwrap();
+            let back: Card = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, card);
+            assert_eq!(data_of(&back), data_of(&card));
+            assert_eq!(serde_json::to_string(&back).unwrap(), json);
+        }
+        let bulbasaur = serde_json::to_string(&get_card_by_enum(CardId::A1001Bulbasaur)).unwrap();
+        assert!(bulbasaur.starts_with(r#"{"Pokemon":{"id":"A1 001","name":"Bulbasaur","#));
+    }
+
+    #[test]
+    fn cards_outside_the_database_round_trip_too() {
+        let json = r#"{"Trainer":{"id":"X 1","trainer_card_type":"Item","name":"Test","effect":"","rarity":"","booster_pack":""}}"#;
+        let card: Card = serde_json::from_str(json).unwrap();
+        assert_eq!(card.get_name(), "Test");
+        assert_eq!(serde_json::to_string(&card).unwrap(), json);
     }
 }

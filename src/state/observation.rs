@@ -114,14 +114,21 @@ impl State {
     pub fn agent_snapshot(&self, viewer: usize, actions: &[crate::actions::Action]) -> State {
         assert!(viewer < 2 && actions.iter().all(|a| a.actor == viewer));
         let mut snapshot = self.clone();
-        let unknown = Card::Trainer(crate::models::TrainerCard {
-            id: "UNKNOWN".into(),
-            name: "Unknown".into(),
-            trainer_card_type: crate::models::TrainerType::Item,
-            effect: String::new(),
-            rarity: String::new(),
-            booster_pack: String::new(),
+        // One placeholder for the whole program: card data is leaked when it is made.
+        static UNKNOWN: std::sync::LazyLock<Card> = std::sync::LazyLock::new(|| {
+            Card::Trainer(
+                crate::models::TrainerCardData {
+                    id: "UNKNOWN".into(),
+                    name: "Unknown".into(),
+                    trainer_card_type: crate::models::TrainerType::Item,
+                    effect: String::new(),
+                    rarity: String::new(),
+                    booster_pack: String::new(),
+                }
+                .into(),
+            )
         });
+        let unknown = UNKNOWN.clone();
         snapshot.hands[1 - viewer].fill(unknown.clone());
         for deck in &mut snapshot.decks {
             deck.cards.fill(unknown.clone());

@@ -2,7 +2,7 @@ use std::{fs::File, io::Read};
 
 use clap::Parser;
 
-use deckgym::models::{Ability, Attack, Card, EnergyType};
+use deckgym::models::{Ability, Attack, Card, CardData, EnergyType};
 use indexmap::IndexMap;
 
 #[derive(Parser, Debug)]
@@ -38,7 +38,12 @@ fn main() {
     let mut json_string = String::new();
     file.read_to_string(&mut json_string)
         .expect("Unable to read string");
-    let deserialized_cards: Vec<Card> = serde_json::from_str(&json_string).unwrap();
+    // Read as plain data: a `Card` would be taken from the current database by its id.
+    let deserialized_cards: Vec<Card> = serde_json::from_str::<Vec<CardData>>(&json_string)
+        .unwrap()
+        .into_iter()
+        .map(Card::from)
+        .collect();
 
     // Generate the Enum Names
     let mut card_map: IndexMap<String, Card> = IndexMap::new();
@@ -120,9 +125,12 @@ fn print_database(card_map: &IndexMap<String, Card>) {
     println!();
     println!("use crate::{{");
     println!("    card_ids::CardId,");
+    println!("    models::{{");
     println!(
-        "    models::{{Ability, Attack, Card, EnergyType, PokemonCard, TrainerCard, TrainerType}},"
+        "        Ability, Attack, CardData as Card, EnergyType, PokemonCardData as PokemonCard,"
     );
+    println!("        TrainerCardData as TrainerCard, TrainerType,");
+    println!("    }},");
     println!("}};");
     println!();
     println!("static DATABASE: LazyLock<HashMap<CardId, Card>> = LazyLock::new(|| {{");
@@ -146,11 +154,11 @@ fn print_database(card_map: &IndexMap<String, Card>) {
         println!("}}");
         println!();
     }
-    println!("pub fn get_card_by_enum(id: CardId) -> Card {{");
+    println!("pub fn get_card_by_enum(id: CardId) -> crate::models::Card {{");
     println!("    DATABASE");
     println!("        .get(&id)");
     println!("        .unwrap_or_else(|| panic!(\"Missing generated card for {{:?}}\", id))");
-    println!("        .clone()");
+    println!("        .into()");
     println!("}}");
 }
 

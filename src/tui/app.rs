@@ -510,7 +510,10 @@ mod tests {
     use super::sort_actions_for_tui;
     use crate::{
         actions::{Action, SimpleAction},
-        models::{Attack, Card, EnergyType, PokemonCard, TrainerCard, TrainerType},
+        models::{
+            Attack, Card, EnergyType, PokemonCard, PokemonCardData, TrainerCard, TrainerCardData,
+            TrainerType,
+        },
     };
 
     fn action(action: SimpleAction) -> Action {
@@ -522,7 +525,7 @@ mod tests {
     }
 
     fn test_pokemon(name: &str) -> Card {
-        Card::Pokemon(PokemonCard {
+        Card::Pokemon(PokemonCard::from(PokemonCardData {
             id: format!("test-{name}"),
             name: name.to_string(),
             stage: 0,
@@ -535,7 +538,7 @@ mod tests {
             retreat_cost: vec![],
             rarity: String::new(),
             booster_pack: String::new(),
-        })
+        }))
     }
 
     #[test]
@@ -554,14 +557,14 @@ mod tests {
                 is_turn_energy: true,
             }),
             action(SimpleAction::Play {
-                trainer_card: TrainerCard {
+                trainer_card: TrainerCard::from(TrainerCardData {
                     id: "potion".to_string(),
                     trainer_card_type: TrainerType::Item,
                     name: "Potion".to_string(),
                     effect: String::new(),
                     rarity: String::new(),
                     booster_pack: String::new(),
-                },
+                }),
             }),
             action(SimpleAction::Evolve {
                 evolution: test_pokemon("Ivysaur"),
