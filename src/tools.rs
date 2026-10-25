@@ -125,6 +125,11 @@ pub fn has_tool(played_card: &PlayedCard, reference_tool_id: CardId) -> bool {
 /// remove *that* Tool specifically (Lum Berry and Sitrus Berry discard themselves; Metal Core
 /// Barrier is discarded at the end of the opponent's turn) rather than all of them.
 pub(crate) fn tool_position(played_card: &PlayedCard, reference_tool_id: CardId) -> Option<usize> {
+    // Most Pokémon hold no Tool; skip the effect-text lookup for them (`get_remaining_hp` asks
+    // this four times).
+    if played_card.attached_tools.is_empty() {
+        return None;
+    }
     let reference_effect = tool_effect_text(reference_tool_id);
     played_card
         .attached_tools
