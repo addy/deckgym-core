@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::LazyLock;
 use strum::IntoEnumIterator;
 
@@ -32,23 +31,21 @@ fn tool_effect_text_from_card_id(tool_card_id: CardId) -> String {
     trainer_card.effect.clone()
 }
 
-/// Effect text of every Pokémon Tool, keyed by card id, built once. The
-/// per-call lookups below must not rebuild a card from the database: that
-/// made every `get_remaining_hp` (four `has_tool` checks) allocate.
-static TOOL_EFFECT_BY_ID: LazyLock<HashMap<CardId, String>> = LazyLock::new(|| {
+/// Effect text of every Pokémon Tool, indexed by card id (`CardId::iter` runs in
+/// discriminant order), built once. The per-call lookups below must not rebuild a card from the
+/// database: that made every `get_remaining_hp` (four `has_tool` checks) allocate.
+static TOOL_EFFECT_BY_ID: LazyLock<Vec<Option<String>>> = LazyLock::new(|| {
     CardId::iter()
-        .filter_map(|id| match get_card_by_enum(id) {
-            Card::Trainer(t) if t.trainer_card_type == TrainerType::Tool => {
-                Some((id, t.effect.clone()))
-            }
+        .map(|id| match get_card_by_enum(id) {
+            Card::Trainer(t) if t.trainer_card_type == TrainerType::Tool => Some(t.effect.clone()),
             _ => None,
         })
         .collect()
 });
 
 fn tool_effect_text(tool_card_id: CardId) -> &'static str {
-    TOOL_EFFECT_BY_ID
-        .get(&tool_card_id)
+    TOOL_EFFECT_BY_ID[tool_card_id as usize]
+        .as_deref()
         .unwrap_or_else(|| panic!("Expected TrainerCard of subtype Tool, got {tool_card_id:?}"))
 }
 
