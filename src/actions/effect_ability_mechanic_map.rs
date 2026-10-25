@@ -795,10 +795,8 @@ pub fn get_ability_mechanic(card: &Card) -> Option<&'static AbilityMechanic> {
         return None;
     };
 
-    pokemon
-        .ability
-        .as_ref()
-        .and_then(|ability| ability_mechanic_from_effect(&ability.effect))
+    // Looked up once, when the card was made.
+    pokemon.ability_mechanic()
 }
 
 pub fn has_ability_mechanic(card: &Card, mechanic: &AbilityMechanic) -> bool {
