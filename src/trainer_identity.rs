@@ -24,7 +24,7 @@ static CANONICAL_BY_EFFECT: LazyLock<HashMap<String, CardId>> = LazyLock::new(||
     let mut map = HashMap::new();
     for id in CardId::iter() {
         if let Card::Trainer(trainer) = get_card_by_enum(id) {
-            map.entry(trainer.effect).or_insert(id);
+            map.entry(trainer.effect.clone()).or_insert(id);
         }
     }
     map

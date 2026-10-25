@@ -5,7 +5,10 @@ use std::sync::LazyLock;
 
 use crate::{
     card_ids::CardId,
-    models::{Ability, Attack, Card, EnergyType, PokemonCard, TrainerCard, TrainerType},
+    models::{
+        Ability, Attack, CardData as Card, EnergyType, PokemonCardData as PokemonCard,
+        TrainerCardData as TrainerCard, TrainerType,
+    },
 };
 
 static DATABASE: LazyLock<HashMap<CardId, Card>> = LazyLock::new(|| {
@@ -105274,9 +105277,9 @@ fn populate_database_chunk_35(map: &mut HashMap<CardId, Card>) {
     );
 }
 
-pub fn get_card_by_enum(id: CardId) -> Card {
+pub fn get_card_by_enum(id: CardId) -> crate::models::Card {
     DATABASE
         .get(&id)
         .unwrap_or_else(|| panic!("Missing generated card for {:?}", id))
-        .clone()
+        .into()
 }

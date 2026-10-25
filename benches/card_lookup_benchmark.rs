@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use deckgym::card_ids::CardId;
-use deckgym::models::{Attack, Card, EnergyType, PokemonCard};
+use deckgym::models::{Attack, Card, EnergyType, PokemonCard, PokemonCardData};
 use lazy_static::lazy_static;
 
 fn num_match_approach(id: u16) -> Option<CardId> {
@@ -38,7 +38,7 @@ fn lazy_static_map_approach(id: &str) -> Option<CardId> {
 }
 
 lazy_static! {
-    static ref BULBASAUR: Card = Card::Pokemon(PokemonCard {
+    static ref BULBASAUR: Card = Card::Pokemon(PokemonCard::from(PokemonCardData {
         id: "A1 001".to_string(),
         name: "Bulbasaur".to_string(),
         stage: 0,
@@ -57,7 +57,7 @@ lazy_static! {
         retreat_cost: vec![EnergyType::Colorless],
         rarity: "◇".to_string(),
         booster_pack: "Genetic Apex (A1) Mewtwo".to_string(),
-    });
+    }));
 }
 
 pub fn get_card_lazy_map(id: CardId) -> &'static Card {
@@ -69,7 +69,7 @@ pub fn get_card_lazy_map(id: CardId) -> &'static Card {
 
 pub fn get_card_create(id: CardId) -> Card {
     match id {
-        CardId::A1001Bulbasaur => Card::Pokemon(PokemonCard {
+        CardId::A1001Bulbasaur => Card::Pokemon(PokemonCard::from(PokemonCardData {
             id: "A1 001".to_string(),
             name: "Bulbasaur".to_string(),
             stage: 0,
@@ -88,7 +88,7 @@ pub fn get_card_create(id: CardId) -> Card {
             retreat_cost: vec![EnergyType::Colorless],
             rarity: "◇".to_string(),
             booster_pack: "Genetic Apex (A1) Mewtwo".to_string(),
-        }),
+        })),
         _ => panic!("Card not found"),
     }
 }

@@ -1004,7 +1004,7 @@ fn test_bounded_field_doubles_all_modifiers_including_red() {
 
 fn can_play(game: &deckgym::Game<'static>, card_id: CardId) -> bool {
     let (_actor, actions) = game.get_state_clone().generate_possible_actions();
-    let name = trainer_from_id(card_id).name;
+    let name = trainer_from_id(card_id).name.clone();
     actions.iter().any(|action| match &action.action {
         SimpleAction::Play { trainer_card } => trainer_card.name == name,
         _ => false,
