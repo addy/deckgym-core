@@ -5,7 +5,8 @@ use rand::rngs::StdRng;
 
 use crate::{
     actions::{
-        abilities::AbilityMechanic, ability_mechanic_from_effect, shared_mutations, SimpleAction,
+        abilities::AbilityMechanic, ability_mechanic_from_effect, get_ability_mechanic,
+        shared_mutations, SimpleAction,
     },
     card_ids::CardId,
     effects::{CardEffect, TurnEffect},
@@ -112,11 +113,17 @@ fn forecast_pokemon_checkup(state: &State) -> (Probabilities, Mutations) {
 
     let mut probabilities = Vec::with_capacity(outcome_ids.len());
     let mut outcomes: Mutations = Vec::with_capacity(outcome_ids.len());
+    // Only a start-of-turn Ability needs the board after the Checkup; without one in play,
+    // skip building it.
+    let may_start_turn_ability = may_trigger_start_turn_ability(&preview_state, next_player);
     for outcome in outcome_ids {
-        let mut preview_after_checkup = preview_state.clone();
-        apply_pokemon_checkup(&mut preview_after_checkup, &checkup_targets, &outcome);
-        let (start_probs, start_mutations) =
-            start_turn_ability_outcomes(&preview_after_checkup, next_player, false);
+        let (start_probs, start_mutations) = if may_start_turn_ability {
+            let mut preview_after_checkup = preview_state.clone();
+            apply_pokemon_checkup(&mut preview_after_checkup, &checkup_targets, &outcome);
+            start_turn_ability_outcomes(&preview_after_checkup, next_player, false)
+        } else {
+            (vec![1.0], vec![noop_mutation()])
+        };
         for (start_prob, start_mutation) in start_probs.into_iter().zip(start_mutations) {
             let outcome = outcome.clone();
             probabilities.push(base_probability * start_prob);
@@ -137,6 +144,23 @@ fn forecast_pokemon_checkup(state: &State) -> (Probabilities, Mutations) {
         }
     }
     (probabilities, outcomes)
+}
+
+/// Whether any of `player`'s Pokémon has an Ability `start_turn_ability_outcomes` acts on (the
+/// Checkup moves no Pokémon, so this holds for the board after it too).
+fn may_trigger_start_turn_ability(state: &State, player: usize) -> bool {
+    state.in_play_pokemon[player]
+        .iter()
+        .flatten()
+        .any(|pokemon| {
+            matches!(
+                get_ability_mechanic(&pokemon.card),
+                Some(
+                    AbilityMechanic::StartTurnRandomPokemonToHand { .. }
+                        | AbilityMechanic::QuickGrowth
+                )
+            )
+        })
 }
 
 /// Outcomes of abilities that trigger as a turn begins. `from_setup` is true when the turn is
