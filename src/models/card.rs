@@ -5,7 +5,7 @@ use std::ops::Deref;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{
-    actions::{abilities::AbilityMechanic, has_ability_mechanic},
+    actions::{abilities::AbilityMechanic, ability_mechanic_from_effect, has_ability_mechanic},
     card_ids::CardId,
     database::get_card_by_enum,
 };
@@ -139,18 +139,39 @@ impl PokemonCard {
 /// it. Fields are read through `Deref`. Equality, hashing, `Debug` and serde behave as they
 /// did when the card owned its data.
 #[derive(Clone)]
-pub struct PokemonCard(&'static PokemonCardData);
+pub struct PokemonCard {
+    data: &'static PokemonCardData,
+    /// The Ability's mechanic, looked up from its effect text once rather than on every query.
+    ability_mechanic: Option<&'static AbilityMechanic>,
+}
+impl PokemonCard {
+    fn new(data: &'static PokemonCardData) -> Self {
+        let ability_mechanic = data
+            .ability
+            .as_ref()
+            .and_then(|ability| ability_mechanic_from_effect(&ability.effect));
+        PokemonCard {
+            data,
+            ability_mechanic,
+        }
+    }
+
+    /// The mechanic of this card's Ability, if it has one the engine implements.
+    pub fn ability_mechanic(&self) -> Option<&'static AbilityMechanic> {
+        self.ability_mechanic
+    }
+}
 impl Deref for PokemonCard {
     type Target = PokemonCardData;
     fn deref(&self) -> &PokemonCardData {
-        self.0
+        self.data
     }
 }
 /// Card data that lives for the rest of the program (tests, tools): leaked once. Database
 /// cards are borrowed from the database instead (`get_card_by_enum`).
 impl From<PokemonCardData> for PokemonCard {
     fn from(data: PokemonCardData) -> Self {
-        PokemonCard(Box::leak(Box::new(data)))
+        PokemonCard::new(Box::leak(Box::new(data)))
     }
 }
 impl PartialEq for PokemonCard {
@@ -166,7 +187,7 @@ impl Hash for PokemonCard {
 }
 impl Serialize for PokemonCard {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        self.0.serialize(serializer)
+        self.data.serialize(serializer)
     }
 }
 impl<'de> Deserialize<'de> for PokemonCard {
@@ -264,7 +285,7 @@ impl From<CardData> for Card {
 impl From<&'static CardData> for Card {
     fn from(data: &'static CardData) -> Self {
         match data {
-            CardData::Pokemon(data) => Card::Pokemon(PokemonCard(data)),
+            CardData::Pokemon(data) => Card::Pokemon(PokemonCard::new(data)),
             CardData::Trainer(data) => Card::Trainer(TrainerCard(data)),
         }
     }
@@ -492,7 +513,7 @@ mod tests {
 
     fn data_of(card: &Card) -> *const () {
         match card {
-            Card::Pokemon(p) => p.0 as *const PokemonCardData as *const (),
+            Card::Pokemon(p) => p.data as *const PokemonCardData as *const (),
             Card::Trainer(t) => t.0 as *const TrainerCardData as *const (),
         }
     }
