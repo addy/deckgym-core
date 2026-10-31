@@ -1,9 +1,9 @@
 use deckgym::{
-    actions::{Action, SimpleAction},
+    actions::{forecast_action, Action, SimpleAction},
     card_ids::CardId,
     database::get_card_by_enum,
     models::{Card, EnergyType, PlayedCard},
-    test_support::get_test_game_with_board,
+    test_support::{get_test_game_with_board, trainer_from_id},
     Game,
 };
 
@@ -221,4 +221,70 @@ fn test_hospitality_heals_the_active_grass_pokemon_from_the_bench() {
         70 - 10,
         "Hospitality heals 20 of the 30 damage"
     );
+}
+
+/// Frogadier C1's Sudden Duplication is offered as the evolution resolves, but the evolution can
+/// be what Knocks Frogadier Out: a Froakie kept alive by Starting Plains (60 HP + 20) carrying
+/// 70 damage becomes a 70-HP Frogadier, which the knockout check closing the same action takes
+/// off the board. A `UseAbility` queued for it would point at an empty slot and panic when
+/// forecast ("Pokemon should be there if using ability").
+#[test]
+fn test_sudden_duplication_is_not_offered_when_the_evolution_knocks_frogadier_out() {
+    let mut game = get_test_game_with_board(
+        vec![
+            PlayedCard::from_id(CardId::A1001Bulbasaur),
+            PlayedCard::from_id(CardId::C1040Froakie).with_damage(70),
+        ],
+        vec![PlayedCard::from_id(CardId::A1001Bulbasaur)],
+    );
+    let mut state = game.get_state_clone();
+    state.hands[0] = vec![
+        get_card_by_enum(CardId::B2154StartingPlains),
+        get_card_by_enum(CardId::C1041Frogadier),
+    ];
+    // A Frogadier in the deck and a free Bench slot: the Ability would have something to do.
+    state.decks[0]
+        .cards
+        .push(get_card_by_enum(CardId::C1041Frogadier));
+    game.set_state(state);
+
+    // Starting Plains keeps the 70-damage Froakie alive at 80 HP.
+    game.apply_action(&Action {
+        actor: 0,
+        action: SimpleAction::Play {
+            trainer_card: trainer_from_id(CardId::B2154StartingPlains),
+        },
+        is_stack: false,
+    });
+    assert!(
+        game.get_state_clone().in_play_pokemon[0][1].is_some(),
+        "Starting Plains keeps the 70-damage Froakie alive"
+    );
+
+    game.apply_action(&Action {
+        actor: 0,
+        action: SimpleAction::Evolve {
+            evolution: get_card_by_enum(CardId::C1041Frogadier),
+            in_play_idx: 1,
+            from_deck: false,
+        },
+        is_stack: false,
+    });
+
+    let state = game.get_state_clone();
+    assert!(
+        state.in_play_pokemon[0][1].is_none(),
+        "the 70-HP Frogadier is Knocked Out by the damage it inherits"
+    );
+    assert_eq!(state.points[1], 1);
+    let (_, choices) = state.generate_possible_actions();
+    assert!(
+        !choices
+            .iter()
+            .any(|c| matches!(c.action, SimpleAction::UseAbility { .. })),
+        "no Ability is offered for the empty slot: {choices:?}"
+    );
+    for choice in &choices {
+        forecast_action(&state, choice);
+    }
 }

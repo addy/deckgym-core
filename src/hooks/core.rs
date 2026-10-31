@@ -139,6 +139,16 @@ pub(crate) fn on_evolve(
     if !from_hand {
         return;
     }
+    // A Pokémon the evolution itself Knocks Out — its inherited damage reaches the evolved
+    // card's lower HP, as a Froakie kept alive by Starting Plains (60 + 20) does when it becomes
+    // a 70-HP Frogadier — leaves play in the knockout check that closes this action, before any
+    // queued choice is taken. A choice offered for it would point at an empty slot.
+    if state.in_play_pokemon[actor][in_play_idx]
+        .as_ref()
+        .is_none_or(|pokemon| pokemon.is_knocked_out())
+    {
+        return;
+    }
 
     match get_ability_mechanic(to_card) {
         Some(AbilityMechanic::DrawCardsOnEvolve { amount }) => {
