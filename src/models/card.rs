@@ -133,7 +133,6 @@ impl PokemonCard {
     }
 }
 
-
 /// A Pokémon card: a shared reference to immutable card data, so cloning a card (and the
 /// states and actions that hold cards) copies a pointer instead of every string and list on
 /// it. Fields are read through `Deref`. Equality, hashing, `Debug` and serde behave as they
